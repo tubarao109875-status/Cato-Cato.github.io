@@ -1,1 +1,186 @@
-echo hi
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pegue a Meimei!</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: #1d2b3a; font-family: system-ui, Arial, sans-serif;
+    user-select: none; -webkit-user-select: none; touch-action: none;
+  }
+  #hud {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+    padding: calc(env(safe-area-inset-top, 0px) + 10px) 12px 10px;
+    text-align: center; color: #fff; font-size: 22px; font-weight: 700;
+    pointer-events: none; text-shadow: 0 2px 4px rgba(0,0,0,.6);
+  }
+  #hint { font-size: 14px; font-weight: 400; opacity: .8; }
+  #cat {
+    position: absolute; left: 0; top: 0; width: 140px; height: auto;
+    will-change: transform; cursor: pointer; z-index: 5;
+    -webkit-user-drag: none; user-drag: none;
+  }
+  #miss {
+    position: fixed; inset: 0; z-index: 20; display: none;
+    align-items: center; justify-content: center;
+    background: rgba(0,0,0,.55); pointer-events: none;
+  }
+  #miss img { max-width: 85%; max-height: 80%; border-radius: 16px; }
+  #final {
+    position: fixed; inset: 0; z-index: 30; display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; padding: 16px; background: #1d3a1f; touch-action: auto;
+  }
+  #final img { max-width: 90%; max-height: 55%; border-radius: 16px; }
+  #bubble {
+    background: #fff; color: #111; padding: 12px 20px; border-radius: 18px;
+    font-size: 24px; font-weight: 700; text-align: center;
+  }
+  #again {
+    padding: 12px 28px; font-size: 18px; border: 0; border-radius: 12px;
+    background: #7be37b; color: #052; font-weight: 700; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  Cliques: <span id="count">0</span> / 50
+  <div id="hint">Clique na Meimei para pegá-la!</div>
+</div>
+
+<img id="cat" src="main.webp" alt="Meimei" draggable="false">
+
+<div id="miss"><img src="HAHA.webp" alt="HAHA" draggable="false"></div>
+
+<div id="final">
+  <img src="meimeizip.webp" alt="Meimei alienígena" draggable="false">
+  <div id="bubble">Pabens zib zip zib</div>
+  <button id="again">Jogar de novo</button>
+</div>
+
+<script>
+(function () {
+  var TOTAL = 50;
+  var REACTION_MS = 900;
+  var START_SPEED = 60;     // px por segundo (lento no início)
+  var ACCEL = 8;            // px/s ganhos por segundo
+  var MAX_SPEED = 750;
+  var SPIN = 120;           // graus por segundo
+
+  var cat = document.getElementById('cat');
+  var missEl = document.getElementById('miss');
+  var finalEl = document.getElementById('final');
+  var countEl = document.getElementById('count');
+  var againBtn = document.getElementById('again');
+
+  // pré-carrega as imagens
+  ['main.webp', 'dang.webp', 'HAHA.webp', 'meimeizip.webp'].forEach(function (src) {
+    var i = new Image(); i.src = src;
+  });
+
+  var count, x, y, vx, vy, speed, angle, locked, finished, last;
+
+  function size() {
+    return { w: cat.offsetWidth || 140, h: cat.offsetHeight || 140 };
+  }
+
+  function reset() {
+    count = 0; speed = START_SPEED; angle = 0;
+    locked = false; finished = false;
+    countEl.textContent = '0';
+    cat.src = 'main.webp';
+    cat.style.display = 'block';
+    missEl.style.display = 'none';
+    finalEl.style.display = 'none';
+    var s = size();
+    x = Math.max(0, (window.innerWidth - s.w) / 2);
+    y = Math.max(0, (window.innerHeight - s.h) / 2);
+    var dir = Math.PI / 4 + Math.random() * Math.PI / 2;
+    vx = Math.cos(dir) * (Math.random() < .5 ? 1 : -1);
+    vy = Math.sin(dir) * (Math.random() < .5 ? 1 : -1);
+    last = performance.now();
+  }
+
+  function tick(now) {
+    var dt = Math.min((now - last) / 1000, 0.05);
+    last = now;
+
+    if (!locked && !finished) {
+      speed = Math.min(MAX_SPEED, speed + ACCEL * dt);
+      angle = (angle + SPIN * dt) % 360;
+      var s = size();
+      var maxX = Math.max(0, window.innerWidth - s.w);
+      var maxY = Math.max(0, window.innerHeight - s.h);
+
+      x += vx * speed * dt;
+      y += vy * speed * dt;
+
+      if (x <= 0)    { x = 0;    vx =  Math.abs(vx); }
+      if (x >= maxX) { x = maxX; vx = -Math.abs(vx); }
+      if (y <= 0)    { y = 0;    vy =  Math.abs(vy); }
+      if (y >= maxY) { y = maxY; vy = -Math.abs(vy); }
+    }
+
+    cat.style.transform =
+      'translate(' + x + 'px,' + y + 'px) rotate(' + (locked ? 0 : angle) + 'deg)';
+    requestAnimationFrame(tick);
+  }
+
+  function addClick() {
+    count++;
+    countEl.textContent = count;
+    if (count >= TOTAL) { win(); return false; }
+    return true;
+  }
+
+  function win() {
+    finished = true;
+    cat.style.display = 'none';
+    missEl.style.display = 'none';
+    finalEl.style.display = 'flex';
+  }
+
+  function onPress(e) {
+    if (locked || finished) return;
+    if (finalEl.contains(e.target)) return;
+    e.preventDefault();
+
+    var hit = (e.target === cat);
+    if (!addClick()) return;
+
+    locked = true;
+    if (hit) {
+      cat.src = 'dang.webp';
+      setTimeout(function () {
+        cat.src = 'main.webp';
+        locked = false;
+        last = performance.now();
+      }, REACTION_MS);
+    } else {
+      missEl.style.display = 'flex';
+      setTimeout(function () {
+        missEl.style.display = 'none';
+        locked = false;
+        last = performance.now();
+      }, REACTION_MS);
+    }
+  }
+
+  document.addEventListener('pointerdown', onPress, { passive: false });
+  againBtn.addEventListener('click', reset);
+  window.addEventListener('resize', function () {
+    var s = size();
+    x = Math.min(x, Math.max(0, window.innerWidth - s.w));
+    y = Math.min(y, Math.max(0, window.innerHeight - s.h));
+  });
+
+  reset();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
