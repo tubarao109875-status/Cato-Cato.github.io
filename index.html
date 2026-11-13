@@ -66,9 +66,11 @@
 (function () {
   var TOTAL = 50;
   var REACTION_MS = 900;
-  var START_SPEED = 100;    // px por segundo (lento no início)
-  var ACCEL = 13;           // px/s ganhos por segundo
+  var START_SPEED = 110;    // px por segundo no início
+  var SPEED_STEP = 60;      // px/s ganhos a cada intervalo
+  var STEP_SECONDS = 5;     // a cada quantos segundos ela acelera
   var MAX_SPEED = 900;
+  var BOUNCE_SPREAD = 70;   // graus de variação aleatória ao bater na parede
   var SPIN = 120;           // graus por segundo
 
   var cat = document.getElementById('cat');
@@ -82,14 +84,14 @@
     var i = new Image(); i.src = src;
   });
 
-  var count, x, y, vx, vy, speed, angle, locked, finished, last;
+  var count, x, y, vx, vy, speed, angle, locked, finished, last, elapsed;
 
   function size() {
     return { w: cat.offsetWidth || 140, h: cat.offsetHeight || 140 };
   }
 
   function reset() {
-    count = 0; speed = START_SPEED; angle = 0;
+    count = 0; speed = START_SPEED; angle = 0; elapsed = 0;
     locked = false; finished = false;
     countEl.textContent = '0';
     cat.src = 'main.webp';
@@ -110,7 +112,11 @@
     last = now;
 
     if (!locked && !finished) {
-      speed = Math.min(MAX_SPEED, speed + ACCEL * dt);
+      elapsed += dt;
+      if (elapsed >= STEP_SECONDS) {
+        elapsed -= STEP_SECONDS;
+        speed = Math.min(MAX_SPEED, speed + SPEED_STEP);
+      }
       angle = (angle + SPIN * dt) % 360;
       var s = size();
       var maxX = Math.max(0, window.innerWidth - s.w);
@@ -119,10 +125,20 @@
       x += vx * speed * dt;
       y += vy * speed * dt;
 
-      if (x <= 0)    { x = 0;    vx =  Math.abs(vx); }
-      if (x >= maxX) { x = maxX; vx = -Math.abs(vx); }
-      if (y <= 0)    { y = 0;    vy =  Math.abs(vy); }
-      if (y >= maxY) { y = maxY; vy = -Math.abs(vy); }
+      // direção "para dentro" da tela conforme a parede batida
+      var nx = 0, ny = 0;
+      if (x <= 0)    { x = 0;    nx += 1; }
+      if (x >= maxX) { x = maxX; nx -= 1; }
+      if (y <= 0)    { y = 0;    ny += 1; }
+      if (y >= maxY) { y = maxY; ny -= 1; }
+
+      if (nx !== 0 || ny !== 0) {
+        // vai para um lado aleatório (sempre afastando da parede)
+        var base = Math.atan2(ny, nx);
+        var off = (Math.random() * 2 - 1) * BOUNCE_SPREAD * Math.PI / 180;
+        vx = Math.cos(base + off);
+        vy = Math.sin(base + off);
+      }
     }
 
     cat.style.transform =
